@@ -1,0 +1,349 @@
+import { AuditResult } from "./audit";
+import { RepoFacts } from "./ingest";
+
+export interface Fix {
+  checkId: string;
+  title: string;
+  description: string;
+  code: string;
+  files: string[];
+  effort: "trivial" | "easy" | "moderate" | "hard";
+  impact: "low" | "medium" | "high" | "critical";
+  priority: number;
+}
+
+export interface GeneratedArtifact {
+  path: string;
+  content: string;
+  description: string;
+}
+
+export function generateFixes(audit: AuditResult, facts: RepoFacts): GeneratedArtifact[] {
+  const artifacts: GeneratedArtifact[] = [];
+  
+  for (const fix of audit.fixes) {
+    if (fix.code && fix.files) {
+      for (const file of fix.files) {
+        artifacts.push({
+          path: file,
+          content: fix.code,
+          description: fix.title,
+        });
+      }
+    }
+  }
+  
+  return artifacts;
+}
+
+export function generateReadme(facts: RepoFacts, audit: AuditResult): string {
+  const badges = generateBadges(facts);
+  const sections = [
+    generateHeader(facts, badges),
+    generateDescription(facts),
+    generateBadgesSection(badges),
+    generateInstallation(facts),
+    generateUsage(facts),
+    generateApiDocs(facts),
+    generateContributing(facts),
+    generateLicense(facts),
+    generateFooter(facts),
+  ].filter(Boolean).join("\n\n");
+  
+  return sections;
+}
+
+function generateBadges(facts: RepoFacts): string[] {
+  const badges = [
+    `[![Build](https://github.com/${facts.owner}/${facts.repo}/actions/workflows/ci.yml/badge.svg)](https://github.com/${facts.owner}/${facts.repo}/actions/workflows/ci.yml)`,
+    `[![Coverage](https://img.shields.io/codecov/c/github/${facts.owner}/${facts.repo})](https://codecov.io/gh/${facts.owner}/${facts.repo})`,
+    `[![Version](https://img.shields.io/github/v/release/${facts.owner}/${facts.repo})](https://github.com/${facts.owner}/${facts.repo}/releases)`,
+    `[![License](https://img.shields.io/github/license/${facts.owner}/${facts.repo})](LICENSE)`,
+    `[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)`,
+    `[![Node](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)](https://nodejs.org/)`,
+  ];
+  return badges;
+}
+
+function generateHeader(facts: RepoFacts, badges: string[]): string {
+  return `# ${facts.repo}\n\n${badges.join(" ")}`;
+}
+
+function generateDescription(facts: RepoFacts): string {
+  return `## Description\n\n${facts.description || "A modern, well-structured project built with best practices."}\n\n**Repository:** [${facts.fullName}](https://github.com/${facts.fullName})  \n**Language:** ${facts.language || "Multiple"}  \n**License:** ${facts.license || "MIT"}`;
+}
+
+function generateBadgesSection(badges: string[]): string {
+  return `## Status\n\n${badges.join(" | ")}`;
+}
+
+function generateInstallation(facts: RepoFacts): string {
+  const pkg = facts.packageJson;
+  const pm = pkg?.packageManager || "npm";
+  const installCmd = pm === "yarn" ? "yarn install" : pm === "pnpm" ? "pnpm install" : pm === "bun" ? "bun install" : "npm install";
+  
+  return `## Installation\n\n\`\`\`bash\n# Clone the repository\ngit clone https://github.com/${facts.fullName}.git\ncd ${facts.repo}\n\n# Install dependencies\n${installCmd}\n\`\`\``;
+}
+
+function generateUsage(facts: RepoFacts): string {
+  const pkg = facts.packageJson;
+  const scripts = pkg?.scripts || {};
+  const devCmd = scripts.dev ? `npm run dev` : "npm start";
+  const buildCmd = scripts.build ? `npm run build` : "";
+  const testCmd = scripts.test ? `npm run test` : "";
+  
+  let usage = `## Usage\n\n\`\`\`bash\n# Development\n${devCmd}\n\`\`\``;
+  
+  if (buildCmd) {
+    usage += `\n\n\`\`\`bash\n# Production build\n${buildCmd}\n\`\`\``;
+  }
+  
+  if (testCmd) {
+    usage += `\n\n\`\`\`bash\n# Run tests\n${testCmd}\n\`\`\``;
+  }
+  
+  return usage;
+}
+
+function generateApiDocs(facts: RepoFacts): string {
+  return `## API Documentation\n\nAPI documentation is available at [/docs/api](/docs/api) or run:\n\n\`\`\`bash\nnpm run doc:api\n\`\`\``;
+}
+
+function generateContributing(facts: RepoFacts): string {
+  return `## Contributing\n\nWe welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.\n\n1. Fork the repository\n2. Create a feature branch (\`git checkout -b feature/amazing-feature\`)\n3. Commit your changes (\`git commit -m 'feat: add amazing feature'\`)\n4. Push to the branch (\`git push origin feature/amazing-feature\`)\n5. Open a Pull Request\n\n## Code of Conduct\n\nPlease read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.`;
+}
+
+function generateLicense(facts: RepoFacts): string {
+  return `## License\n\nThis project is licensed under the ${facts.license || "MIT"} License - see the [LICENSE](LICENSE) file for details.`;
+}
+
+function generateFooter(facts: RepoFacts): string {
+  return `---\n\nBuilt with ❤️ by [${facts.owner}](https://github.com/${facts.owner})  \nGenerated by [ShipOS](https://github.com/shipos/shipos) — The Universal Submission Engine`;
+}
+
+export function generateContributingMd(facts: RepoFacts): string {
+  return `# Contributing to ${facts.repo}\n\nThank you for your interest in contributing! This document outlines the process for contributing to this project.\n\n## Code of Conduct\n\nThis project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.\n\n## How Can I Contribute?\n\n### Reporting Bugs\n\nBefore creating a bug report, please check the [existing issues](https://github.com/${facts.fullName}/issues) to see if the problem has already been reported.\n\nWhen creating a bug report, please include:\n- A clear and descriptive title\n- Steps to reproduce the issue\n- Expected behavior vs actual behavior\n- Screenshots (if applicable)\n- Environment details (OS, Node version, etc.)\n\n### Suggesting Enhancements\n\nEnhancement suggestions are tracked as [GitHub issues](https://github.com/${facts.fullName}/issues). When creating an enhancement suggestion, please include:\n- A clear and descriptive title\n- A detailed description of the proposed enhancement\n- Why this enhancement would be useful\n- Any alternative solutions you've considered\n\n### Pull Requests\n\n1. Fork the repo and create your branch from \`main\`\n2. If you've added code, add tests\n3. If you've changed APIs, update the documentation\n4. Ensure the test suite passes\n5. Make sure your code lints (\`npm run lint\`)\n6. Format your code (\`npm run format\`)\n7. Write a clear PR description\n\n## Development Setup\n\n\`\`\`bash\n# Clone your fork\ngit clone https://github.com/YOUR_USERNAME/${facts.repo}.git\ncd ${facts.repo}\n\n# Install dependencies\nnpm install\n\n# Start development server\nnpm run dev\n\`\`\`\n\n## Coding Standards\n\n- Follow the existing code style (enforced by Prettier)\n- Write TypeScript with strict mode enabled\n- Add JSDoc comments for public APIs\n- Write tests for new functionality\n- Keep commits atomic and follow conventional commits\n\n## Commit Message Convention\n\nWe use [Conventional Commits](https://www.conventionalcommits.org/):\n\n\`\`\`<type>[optional scope]: <description>\n\n[optional body]\n\n[optional footer(s)]\`\`\`\n\nTypes: feat, fix, docs, style, refactor, perf, test, chore, revert\n\nExample:\n\`\`\`\nfeat(auth): add OAuth2 login flow\n\n- Add Google and GitHub providers\n- Implement token refresh logic\n\nCloses #123\n\`\`\`\n\n## Testing\n\n- Write unit tests for new functions\n- Write integration tests for API endpoints\n- Aim for >80% code coverage\n- Run tests with \`npm run test\`\n\n## License\n\nBy contributing, you agree that your contributions will be licensed under the ${facts.license || "MIT"} License.`;
+}
+
+export function generateCodeOfConductMd(): string {
+  return `# Contributor Covenant Code of Conduct\n\n## Our Pledge\n\nWe as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.\n\nWe pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.\n\n## Our Standards\n\nExamples of behavior that contributes to a positive environment:\n- Demonstrating empathy and kindness toward other people\n- Being respectful of differing opinions, viewpoints, and experiences\n- Giving and gracefully accepting constructive feedback\n- Accepting responsibility and apologizing to those affected by our mistakes\n- Focusing on what is best for the overall community\n\nExamples of unacceptable behavior:\n- The use of sexualized language or imagery, and sexual attention or advances of any kind\n- Trolling, insulting or derogatory comments, and personal or political attacks\n- Public or private harassment\n- Publishing others' private information without explicit permission\n- Other conduct which could reasonably be considered inappropriate in a professional setting\n\n## Enforcement Responsibilities\n\nCommunity leaders are responsible for clarifying and enforcing our standards of acceptable behavior and will take appropriate and fair corrective action in response to any behavior that they deem inappropriate, threatening, offensive, or harmful.\n\nCommunity leaders have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct, and will communicate reasons for moderation decisions when appropriate.\n\n## Scope\n\nThis Code of Conduct applies within all community spaces, and also applies when an individual is officially representing the community in public spaces.\n\n## Enforcement\n\nInstances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at conduct@example.com. All complaints will be reviewed and investigated promptly and fairly.\n\nAll community leaders are obligated to respect the privacy and security of the reporter of any incident.\n\n## Attribution\n\nThis Code of Conduct is adapted from the [Contributor Covenant](https://www.contributor-covenant.org/), version 2.1, available at https://www.contributor-covenant.org/version/2/1/code_of_conduct.html.`;
+}
+
+export function generateChangelogMd(facts: RepoFacts): string {
+  return `# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [Unreleased]\n\n### Added\n- New feature: description\n\n### Changed\n- Improvement: description\n\n### Fixed\n- Bug fix: description\n\n## [1.0.0] - ${new Date().toISOString().split("T")[0]}\n\n### Added\n- Initial release\n- Core functionality\n- Documentation\n\n### Fixed\n- N/A`;
+}
+
+export function generateSecurityMd(facts: RepoFacts): string {
+  return `# Security Policy\n\n## Supported Versions\n\n| Version | Supported |\n| ------- | --------- |\n| ${facts.packageJson?.version || "1.x.x"}   | ✅        |\n\n## Reporting a Vulnerability\n\nWe take security vulnerabilities seriously. If you discover a security vulnerability, please report it responsibly:\n\n1. **Do not** create a public GitHub issue\n2. Email us at security@${facts.owner}.com (or create a private security advisory)\n3. Include details about the vulnerability and steps to reproduce\n\nWe will:\n- Acknowledge receipt within 48 hours\n- Provide a timeline for a fix\n- Credit you in the security advisory (if desired)\n\n## Security Best Practices\n\n- Keep dependencies updated (Dependabot is enabled)\n- Use signed commits\n- Enable 2FA on your account\n- Never commit secrets or API keys`;
+}
+
+export function generateIssueTemplates(facts: RepoFacts): GeneratedArtifact[] {
+  return [
+    {
+      path: ".github/ISSUE_TEMPLATE/bug_report.md",
+      content: `---
+name: Bug Report
+about: Report a bug to help us improve
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+---
+
+## Describe the Bug
+
+A clear and concise description of what the bug is.
+
+## To Reproduce
+
+Steps to reproduce the behavior:
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
+
+## Expected Behavior
+
+A clear and concise description of what you expected to happen.
+
+## Screenshots
+
+If applicable, add screenshots to help explain your problem.
+
+## Environment
+
+- OS: [e.g., macOS 14.0, Windows 11, Ubuntu 22.04]
+- Node.js version: [e.g., 20.10.0]
+- Package manager: [npm/yarn/pnpm/bun]
+- Version: [e.g., 1.0.0]
+
+## Additional Context
+
+Add any other context about the problem here.`,
+      description: "Bug report template",
+    },
+    {
+      path: ".github/ISSUE_TEMPLATE/feature_request.md",
+      content: `---
+name: Feature Request
+about: Suggest an idea for this project
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+---
+
+## Is your feature request related to a problem?
+
+A clear and concise description of what the problem is. Ex: I'm always frustrated when [...]
+
+## Describe the Solution You'd Like
+
+A clear and concise description of what you want to happen.
+
+## Describe Alternatives You've Considered
+
+A clear and concise description of any alternative solutions or features you've considered.
+
+## Additional Context
+
+Add any other context or screenshots about the feature request here.`,
+      description: "Feature request template",
+    },
+    {
+      path: ".github/ISSUE_TEMPLATE/question.md",
+      content: `---
+name: Question
+about: Ask a question about the project
+title: "[Question]: "
+labels: ["question", "needs-triage"]
+assignees: []
+---
+
+## Your Question
+
+A clear and concise description of your question.
+
+## Context
+
+Add any context that might help answer your question (code snippets, error messages, etc.).
+
+## What have you tried?
+
+Describe what you've already tried to solve this.`,
+      description: "Question template",
+    },
+  ];
+}
+
+export function generatePrTemplate(facts: RepoFacts): string {
+  return `## Description
+
+Please include a summary of the changes and the related issue. Fixes #(issue number).
+
+## Type of Change
+
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+- [ ] Refactoring (no functional changes)
+- [ ] Performance improvement
+- [ ] Test updates
+
+## Checklist
+
+- [ ] My code follows the style guidelines of this project
+- [ ] I have performed a self-review of my own code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or that my feature works
+- [ ] New and existing unit tests pass locally with my changes
+- [ ] Any dependent changes have been merged and published
+
+## Screenshots (if applicable)
+
+## Additional Notes`;
+}
+
+export function generateDependabotYml(): string {
+  return `# .github/dependabot.yml\nversion: 2\nupdates:\n  - package-ecosystem: "npm"\n    directory: "/"\n    schedule:\n      interval: "weekly"\n      day: "monday"\n      time: "09:00"\n    open-pull-requests-limit: 10\n    reviewers:\n      - "maintainer1"\n      - "maintainer2"\n    assignees:\n      - "maintainer1"\n    labels:\n      - "dependencies"\n      - "automated-pr"\n    commit-message:\n      prefix: "chore(deps)"\n      prefix-development: "chore(deps-dev)"\n    groups:\n      development-dependencies:\n        patterns:\n          - "*"\n        dependency-type: "development"\n      production-dependencies:\n        patterns:\n          - "*"\n        dependency-type: "production"\n  - package-ecosystem: "github-actions"\n    directory: "/"\n    schedule:\n      interval: "weekly"\n      day: "monday"\n      time: "09:00"\n    labels:\n      - "github-actions"\n      - "automated-pr"`;
+}
+
+export function generateRenovateJson(): string {
+  return JSON.stringify({
+    $schema: "https://docs.renovatebot.com/renovate-schema.json",
+    extends: ["config:recommended", ":dependencyDashboard"],
+    packageRules: [
+      {
+        matchUpdateTypes: ["minor", "patch"],
+        matchCurrentVersion: "!/^0\\./",
+        automerge: true,
+        platformAutomerge: true,
+      },
+      {
+        matchPackagePatterns: ["*"],
+        matchDatasources: ["npm"],
+        groupName: "all dependencies",
+        schedule: ["before 5am on monday"],
+      },
+    ],
+    prPriority: 10,
+    prConcurrentLimit: 10,
+    prHourlyLimit: 5,
+  }, null, 2);
+}
+
+export function generateGitignore(): string {
+  return `# Dependencies\nnode_modules\n.pnp\n.pnp.js\n\n# Testing\ncoverage\n\n# Next.js\n.next/\nout/\nbuild\n\n# Production\nbuild\n\ndist\n\n# Misc\n.DS_Store\n*.pem\n\n# Debug\nnpm-debug.log*\nyarn-debug.log*\nyarn-error.log*\n.pnpm-debug.log*\n\n# Local env files\n.env\n.env.local\n.env.development.local\n.env.test.local\n.env.production.local\n\n# Vercel\n.vercel\n\n# TypeScript\n*.tsbuildinfo\nnext-env.d.ts\n\n# IDE\n.idea\n.vscode\n*.swp\n*.swo\n\n# OS\nThumbs.db\nehthumbs.db\nDesktop.ini\n\n# Logs\nlogs\n*.log\n\n# Turbo\nturbo\n\n# Test\n*.test.ts\n*.test.tsx\n*.spec.ts\n*.spec.tsx`;
+}
+
+export function generateDockerfile(facts: RepoFacts): string {
+  return `# Build stage\nFROM node:20-alpine AS builder\nWORKDIR /app\n\n# Install dependencies\nCOPY package*.json ./\nRUN npm ci\n\n# Copy source and build\nCOPY . .\nRUN npm run build\n\n# Runtime stage\nFROM node:20-alpine\nWORKDIR /app\n\n# Copy built application\nCOPY --from=builder /app/dist ./dist\nCOPY --from=builder /app/node_modules ./node_modules\nCOPY --from=builder /app/package.json ./\n\n# Environment\nENV NODE_ENV=production\nENV PORT=3000\n\nEXPOSE 3000\n\n# Health check\nHEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\\n  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1\n\nCMD ["node", "dist/index.js"]`;
+}
+
+export function generateDockerCompose(facts: RepoFacts): string {
+  return `version: '3.8'\n\nservices:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile\n    ports:\n      - "3000:3000"\n    environment:\n      - NODE_ENV=development\n      - DATABASE_URL=postgresql://postgres:postgres@db:5432/${facts.repo}\n      - REDIS_URL=redis://redis:6379\n    volumes:\n      - .:/app\n      - /app/node_modules\n    depends_on:\n      - db\n      - redis\n    command: npm run dev\n\n  db:\n    image: postgres:16-alpine\n    environment:\n      - POSTGRES_USER=postgres\n      - POSTGRES_PASSWORD=postgres\n      - POSTGRES_DB=${facts.repo}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n    ports:\n      - "5432:5432"\n    healthcheck:\n      test: ["CMD-SHELL", "pg_isready -U postgres"]\n      interval: 10s\n      timeout: 5s\n      retries: 5\n\n  redis:\n    image: redis:7-alpine\n    ports:\n      - "6379:6379"\n    volumes:\n      - redisdata:/data\n    healthcheck:\n      test: ["CMD", "redis-cli", "ping"]\n      interval: 10s\n      timeout: 5s\n      retries: 5\n\nvolumes:\n  pgdata:\n  redisdata:`;
+}
+
+export function generateCiWorkflow(facts: RepoFacts): string {
+  return `# .github/workflows/ci.yml\nname: CI\n\non:\n  push:\n    branches: [main, develop]\n  pull_request:\n    branches: [main, develop]\n\npermissions:\n  contents: read\n  pull-requests: read\n\njobs:\n  lint:\n    name: Lint\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Run linter\n        run: bun run lint\n\n  typecheck:\n    name: TypeCheck\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Run typecheck\n        run: bun run typecheck\n\n  test:\n    name: Test\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Run tests\n        run: bun run test\n\n  build:\n    name: Build\n    runs-on: ubuntu-latest\n    needs: [lint, typecheck, test]\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Build\n        run: bun run build\n\n  security:\n    name: Security Audit\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Audit dependencies\n        run: bun audit\n      - name: Check for vulnerabilities\n        run: bunx npm audit --audit-level=high`;
+}
+
+export function generateCdWorkflow(facts: RepoFacts): string {
+  return `# .github/workflows/cd.yml\nname: Deploy\n\non:\n  release:\n    types: [published]\n  workflow_dispatch:\n    inputs:\n      environment:\n        description: 'Deployment environment'\n        required: true\n        default: 'staging'\n        type: choice\n        options:\n          - staging\n          - production\n\npermissions:\n  contents: read\n  id-token: write\n\njobs:\n  deploy-staging:\n    name: Deploy to Staging\n    if: github.event.inputs.environment == 'staging' || github.event_name == 'release'\n    runs-on: ubuntu-latest\n    environment: staging\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Build\n        run: bun run build\n      - name: Deploy to staging\n        run: echo "Deploying to staging..."\n        env:\n          DEPLOY_ENV: staging\n\n  deploy-production:\n    name: Deploy to Production\n    if: github.event.inputs.environment == 'production'\n    runs-on: ubuntu-latest\n    environment: production\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Bun\n        uses: oven-sh/setup-bun@v1\n        with:\n          bun-version: latest\n      - name: Install dependencies\n        run: bun install --frozen-lockfile\n      - name: Build\n        run: bun run build\n      - name: Deploy to production\n        run: echo "Deploying to production..."\n        env:\n          DEPLOY_ENV: production`;
+}
+
+export function generateAllArtifacts(facts: RepoFacts, audit: AuditResult): GeneratedArtifact[] {
+  const artifacts: GeneratedArtifact[] = [];
+  
+  // Core docs
+  artifacts.push(
+    { path: "README.md", content: generateReadme(facts, audit), description: "Complete README" },
+    { path: "CONTRIBUTING.md", content: generateContributingMd(facts), description: "Contribution guidelines" },
+    { path: "CODE_OF_CONDUCT.md", content: generateCodeOfConductMd(), description: "Code of conduct" },
+    { path: "CHANGELOG.md", content: generateChangelogMd(facts), description: "Changelog" },
+    { path: "SECURITY.md", content: generateSecurityMd(facts), description: "Security policy" },
+  );
+  
+  // Issue/PR templates
+  artifacts.push(...generateIssueTemplates(facts));
+  artifacts.push({ path: ".github/PULL_REQUEST_TEMPLATE.md", content: generatePrTemplate(facts), description: "PR template" });
+  
+  // Automation
+  artifacts.push({ path: ".github/dependabot.yml", content: generateDependabotYml(), description: "Dependabot config" });
+  artifacts.push({ path: "renovate.json", content: generateRenovateJson(), description: "Renovate config" });
+  
+  // Config
+  artifacts.push({ path: ".gitignore", content: generateGitignore(), description: "Git ignore" });
+  artifacts.push({ path: "Dockerfile", content: generateDockerfile(facts), description: "Dockerfile" });
+  artifacts.push({ path: "docker-compose.yml", content: generateDockerCompose(facts), description: "Docker Compose" });
+  
+  // CI/CD
+  artifacts.push({ path: ".github/workflows/ci.yml", content: generateCiWorkflow(facts), description: "CI workflow" });
+  artifacts.push({ path: ".github/workflows/cd.yml", content: generateCdWorkflow(facts), description: "CD workflow" });
+  
+  // Fix artifacts from audit
+  artifacts.push(...generateFixes(audit, facts));
+  
+  return artifacts;
+}
